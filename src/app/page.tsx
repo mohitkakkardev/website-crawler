@@ -8,9 +8,9 @@ export default function App() {
       <Header />
       <main className="p-8">
         <section className="text-center py-20">
-          <h1 className="text-5xl font-bold">Landing page title</h1>
+          <h1 className="text-5xl font-bold">🚀 Instantly Find Any Text on Any Websitee</h1>
           <p className="text-gray-600 mt-4 text-lg max-w-2xl mx-auto">
-            Subheading that sets up context, shares more info about the website, or generally gets people psyched to keep scrolling.
+            Enter a URL, type your keyword, and let our crawler do the work. Quickly search and verify content across the web in seconds!
           </p>
           <SearchBar />
         </section>
