@@ -1,6 +1,6 @@
 import Header from '@/app/components/Header';
 import Footer from '@/app/components/Footer';
-import SearchBar from '@/app/components/SearchBar';
+import CrawlForm from '@/app/components/CrawlForm';
 
 export default function App() {
   return (
@@ -12,7 +12,7 @@ export default function App() {
           <p className="text-gray-600 mt-4 text-lg max-w-2xl mx-auto">
             Enter a URL, type your keyword, and let our crawler do the work. Quickly search and verify content across the web in seconds!
           </p>
-          <SearchBar />
+          <CrawlForm />
         </section>
       </main>
       <Footer />
