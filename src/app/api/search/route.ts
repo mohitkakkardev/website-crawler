@@ -10,6 +10,8 @@ export async function GET(req: Request) {
     }
 
     try {
+        console.log(`Starting crawl for: ${siteUrl}`);
+
         const robotsUrl = new URL("/robots.txt", siteUrl).href;
         const robotsResponse = await fetch(robotsUrl);
 
@@ -42,47 +44,74 @@ export async function GET(req: Request) {
             urls = [siteUrl];
         }
 
-        const BATCH_SIZE = 10;
-        const matchingUrls: string[] = [];
+        console.log(`Total URLs found: ${urls.length}`);
 
-        async function processBatch(batch: string[]) {
-            const results = await Promise.allSettled(
-                batch.map(async (url) => {
-                    try {
-                        const pageResponse = await fetch(url, { method: "GET" });
-                        if (pageResponse.ok) {
-                            if (crawlType == 'Text') {
-                                const pageText = await pageResponse.text();
-                                if (text && pageText.includes(text)) {
-                                    return url;
-                                } else {
-                                    return null;
-                                }
+        const MAX_CONCURRENT_REQUESTS = 5;
+        const RETRY_DELAY_MS = 5000;
+        const matchingUrls: string[] = [];
+        let processedCount = 0;
+
+        async function fetchWithRetry(url: string, retries = 3): Promise<string | null> {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                try {
+                    const pageResponse = await fetch(url, {
+                        method: "GET",
+                        headers: { "User-Agent": "Mozilla/5.0 (compatible; MyCrawler/1.0)" }
+                    });
+
+                    if (pageResponse.ok) {
+                        if (crawlType === 'Keyword') {
+                            const pageText = await pageResponse.text();
+                            if (text && pageText.includes(text)) {
+                                return url;
                             }
                         }
-                    } catch (error) {
-                        console.error(`Error fetching ${url}:`, error);
+                        return null;
                     }
-                    return null;
-                })
-            );
 
-            results.forEach((result) => {
-                if (result.status === "fulfilled" && result.value) {
-                    if (typeof result.value === 'string') {
-                        matchingUrls.push(result.value);
+                    if (pageResponse.status === 429) {
+                        const retryAfter = pageResponse.headers.get("Retry-After");
+                        const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : RETRY_DELAY_MS;
+                        console.warn(`Rate limited. Retrying ${url} after ${waitTime}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                    } else {
+                        console.error(`Error fetching ${url}: ${pageResponse.status}`);
+                        return null;
                     }
+                } catch (error) {
+                    console.error(`Error fetching ${url}:`, error);
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
                 }
+            }
+            return null;
+        }
+
+        async function processBatch(urlsBatch: string[]) {
+            console.log(`Processing batch of ${urlsBatch.length} URLs...`);
+            const promises = urlsBatch.map(url => fetchWithRetry(url));
+            const results = await Promise.allSettled(promises);
+
+            results.forEach(result => {
+                if (result.status === "fulfilled" && result.value) {
+                    matchingUrls.push(result.value);
+                }
+                processedCount++;
+                console.log(`Processed ${processedCount}/${urls.length} URLs...`);
             });
         }
 
-        for (let i = 0; i < urls.length; i += BATCH_SIZE) {
-            const batch = urls.slice(i, i + BATCH_SIZE);
+        for (let i = 0; i < urls.length; i += MAX_CONCURRENT_REQUESTS) {
+            const batch = urls.slice(i, i + MAX_CONCURRENT_REQUESTS);
             await processBatch(batch);
         }
-
-        return Response.json({ status: "success", results: matchingUrls, message: matchingUrls.length > 0 ? (crawlWholeSite ? "Results fetched successfully" : "Match Found!") : "No match found" });
+        console.log(`Final Results Found: ${matchingUrls}`);
+        return Response.json({ status: "success", results: matchingUrls, message: matchingUrls.length > 0 ? (crawlWholeSite ? "Results fetched successfully": "Searched Phrase Exist") : "No match found" });
     } catch (error) {
+        if (error instanceof Error) {
+            console.error("Unexpected error:", error.message);
+        } else {
+            console.error("Unexpected error:", error);
+        }
         return Response.json({ status: "error", results: [], message: "Unexpected error occurred" }, { status: 500 });
     }
 }

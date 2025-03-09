@@ -12,6 +12,15 @@ export default {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
+      keyframes: {
+        scrollText: {
+          "0%": { transform: "translateY(0%)" },
+          "100%": { transform: "translateY(-100%)" }, // Moves the entire text block up
+        },
+      },
+      animation: {
+        "scroll-text": "scrollText 6s linear infinite", // Smooth infinite loop
+      },
     },
   },
   plugins: [],
